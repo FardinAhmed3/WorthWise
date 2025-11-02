@@ -1,16 +1,4 @@
-.venv/
 venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pyw
-*.pyz
-*.pywz
-*.pyzz
-*.pywzz
-*.pyzzz
-*.pywzzz
 .env
 .env.local
 .env.development.local
@@ -23,3 +11,5 @@ __pycache__/
 .env.development.local
 .env.test.local
 .env.production.local
+node_modules/
+__pycache__/
