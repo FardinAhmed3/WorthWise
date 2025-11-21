@@ -1,6 +1,10 @@
 # WorthWise
 
+![WorthWise Landing Page](landing_page.png)
+
 WorthWise is a college return on investment (ROI) planning application that helps students make informed decisions about higher education. The platform enables users to compare colleges and programs, calculate true costs (tuition, housing, and living expenses), and project financial outcomes based on post-graduation earnings data. Users can analyze ROI, debt-to-income ratios, payback periods, and compare up to four scenarios simultaneously. The application integrates data from trusted government sources, including the U.S. Department of Education, HUD, Bureau of Economic Analysis, and Energy Information Administration.
+
+
 
 ---
 
