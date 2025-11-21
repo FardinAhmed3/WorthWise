@@ -260,7 +260,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-6xl mx-auto">
             <div className="relative">
               <div className="text-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mx-auto mb-6 shadow-lg hover:scale-110 transition-transform">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mx-auto mb-6 shadow-lg hover:scale-110 transition-transform relative z-10">
                   1
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900 mb-4">Select Your Programs</h3>
@@ -269,12 +269,12 @@ export default function LandingPage() {
                 </p>
               </div>
               {/* Connector line for desktop */}
-              <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-blue-300 to-indigo-300"></div>
+              <div className="hidden md:block absolute top-[40px] left-[calc(50%+45px)] w-[calc(100%-50px)] h-0.5 bg-gradient-to-r from-blue-300 to-indigo-300 z-0"></div>
             </div>
 
             <div className="relative">
               <div className="text-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mx-auto mb-6 shadow-lg hover:scale-110 transition-transform">
+                <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mx-auto mb-6 shadow-lg hover:scale-110 transition-transform relative z-10">
                   2
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900 mb-4">Customize Your Scenario</h3>
@@ -283,11 +283,11 @@ export default function LandingPage() {
                 </p>
               </div>
               {/* Connector line for desktop */}
-              <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-indigo-300 to-purple-300"></div>
+              <div className="hidden md:block absolute top-[40px] left-[calc(50%+45px)] w-[calc(100%-50px)] h-0.5 bg-gradient-to-r from-indigo-300 to-purple-300 z-0"></div>
             </div>
 
             <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mx-auto mb-6 shadow-lg hover:scale-110 transition-transform">
+              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mx-auto mb-6 shadow-lg hover:scale-110 transition-transform relative z-10">
                 3
               </div>
               <h3 className="text-2xl font-bold text-slate-900 mb-4">Analyze & Compare</h3>
