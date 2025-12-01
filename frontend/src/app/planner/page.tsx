@@ -6,9 +6,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { optionsApi, computeApi, exportApi } from '@/lib/api';
-import type { ComputeRequest, ComputeResponse } from '@/types/api';
+import type { ComputeRequest, ComputeResponse, InstitutionOption } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,9 +22,83 @@ import { CostBreakdownChart } from '@/components/charts/cost-breakdown-chart';
 import { EarningsChart } from '@/components/charts/earnings-chart';
 import { InstitutionSelector } from '@/components/institution-selector';
 import { formatCurrency, formatPercent, formatNumber, formatRatio } from '@/lib/utils';
-import { Calculator, GraduationCap, Home, DollarSign, MapPin, Download, RotateCcw, Sparkles, Database } from 'lucide-react';
+import { Calculator, GraduationCap, Home, DollarSign, MapPin, Download, RotateCcw, Sparkles, Database, Zap } from 'lucide-react';
+
+// Example scenario definitions
+interface ExampleScenario {
+  label: string;
+  description: string;
+  institutionName: string;
+  majorName: string;
+  data: Partial<ComputeRequest>;
+}
+
+const EXAMPLE_SCENARIOS: ExampleScenario[] = [
+  {
+    label: 'Budget-Conscious Student',
+    description: 'CUNY Brooklyn College - Computer Science, living at home',
+    institutionName: 'CUNY Brooklyn College',
+    majorName: 'Computer and Information Sciences',
+    data: {
+      credential_level: 3,
+      is_instate: true,
+      housing_type: 'none',
+      roommate_count: 0,
+      utilities_monthly: 250,
+      food_monthly: 500,
+      transport_monthly: 120,
+      misc_monthly: 150,
+      aid_annual: 2500,
+      cash_annual: 0,
+      loan_apr: 0,
+      effective_tax_rate: 0,
+    },
+  },
+  {
+    label: 'Out-of-State Engineering',
+    description: 'Public university, Engineering major, shared housing',
+    institutionName: 'University of California-Berkeley',
+    majorName: 'Mechanical Engineering',
+    data: {
+      credential_level: 3,
+      is_instate: false,
+      housing_type: '2BR',
+      roommate_count: 1,
+      utilities_monthly: 150,
+      food_monthly: 400,
+      transport_monthly: 100,
+      misc_monthly: 200,
+      aid_annual: 5000,
+      cash_annual: 10000,
+      loan_apr: 0.05,
+      effective_tax_rate: 0.22,
+    },
+  },
+  {
+    label: 'Business Student',
+    description: 'State university, Business major, studio apartment',
+    institutionName: 'CUNY Bernard M Baruch College',
+    majorName: 'Business Administration, Management and Operations',
+    data: {
+      credential_level: 3,
+      is_instate: true,
+      housing_type: 'studio',
+      roommate_count: 0,
+      utilities_monthly: 200,
+      food_monthly: 450,
+      transport_monthly: 150,
+      misc_monthly: 180,
+      aid_annual: 3000,
+      cash_annual: 5000,
+      loan_apr: 0.045,
+      effective_tax_rate: 0.20,
+    },
+  },
+];
 
 export default function PlannerPage() {
+  const queryClient = useQueryClient();
+  
   // Form state
   const [formData, setFormData] = useState<ComputeRequest>({
     institution_id: 0,
@@ -48,6 +122,10 @@ export default function PlannerPage() {
 
   // Computed result state
   const [result, setResult] = useState<ComputeResponse | null>(null);
+  
+  // Example loading state
+  const [exampleError, setExampleError] = useState<string | null>(null);
+  const [loadingExample, setLoadingExample] = useState(false);
 
   // Note: Institution fetching is now handled by InstitutionSelector component
 
@@ -118,6 +196,164 @@ export default function PlannerPage() {
     setResult(null);
   };
 
+  const handleLoadExample = async (scenario: ExampleScenario) => {
+    setExampleError(null);
+    setLoadingExample(true);
+    
+    try {
+      // Search for institution - try multiple search strategies
+      let institutions = await optionsApi.getSchools({ 
+        search: scenario.institutionName,
+        limit: 50 
+      });
+      
+      // Try to find institution with flexible matching
+      let institution = institutions.find(inst => {
+        const instName = inst.name.toLowerCase();
+        const searchName = scenario.institutionName.toLowerCase();
+        return instName === searchName || 
+               instName.includes(searchName) || 
+               searchName.includes(instName.split(',')[0]) ||
+               instName.replace(/[^a-z0-9]/g, '') === searchName.replace(/[^a-z0-9]/g, '');
+      });
+      
+      // If not found, try without search parameter to get more results
+      if (!institution && institutions.length > 0) {
+        // Try finding in the results we got
+        institution = institutions[0];
+      }
+      
+      // If still not found, try a broader search
+      if (!institution) {
+        const searchTerms = scenario.institutionName.split(' ').filter(term => term.length > 2);
+        for (const term of searchTerms) {
+          institutions = await optionsApi.getSchools({ 
+            search: term,
+            limit: 50 
+          });
+          institution = institutions.find(inst => 
+            inst.name.toLowerCase().includes(scenario.institutionName.toLowerCase()) ||
+            scenario.institutionName.toLowerCase().includes(inst.name.toLowerCase().split(',')[0])
+          );
+          if (institution) break;
+        }
+      }
+      
+      if (!institution) {
+        setExampleError(`Could not find institution: ${scenario.institutionName}. Please ensure it exists in the database.`);
+        setLoadingExample(false);
+        return;
+      }
+
+      // Pre-populate the query cache with the selected institution so InstitutionSelector can display it
+      queryClient.setQueryData(['schools', ''], (oldData: InstitutionOption[] | undefined) => {
+        if (!oldData) return [institution];
+        // Check if already in the list
+        if (!oldData.find((inst: InstitutionOption) => inst.id === institution.id)) {
+          return [institution, ...oldData];
+        }
+        return oldData;
+      });
+      
+      // Also set it for the institution name search
+      queryClient.setQueryData(['schools', institution.name], [institution]);
+
+      // Search for major (filtered by institution) - try multiple strategies
+      let majors = await optionsApi.getMajors({ 
+        institution_id: institution.id,
+        search: scenario.majorName,
+        limit: 200 
+      });
+      
+      // Try exact match first
+      let major = majors.find(m => 
+        m.cip_title.toLowerCase() === scenario.majorName.toLowerCase()
+      );
+      
+      // Try partial match - handle cases like "Computer and Information Sciences, General"
+      if (!major) {
+        major = majors.find(m => {
+          const majorTitle = m.cip_title.toLowerCase();
+          const searchName = scenario.majorName.toLowerCase();
+          // Remove common suffixes for comparison
+          const majorBase = majorTitle.split(',')[0].trim();
+          const searchBase = searchName.split(',')[0].trim();
+          return majorTitle.includes(searchName) || 
+                 searchName.includes(majorBase) ||
+                 majorBase.includes(searchName) ||
+                 majorBase === searchBase ||
+                 majorTitle.startsWith(searchName) ||
+                 searchName.startsWith(majorBase);
+        });
+      }
+      
+      // Try searching without filter to find similar majors
+      if (!major && majors.length > 0) {
+        // Try to find any major that contains key words
+        const searchWords = scenario.majorName.toLowerCase().split(' ').filter(w => w.length > 3);
+        for (const word of searchWords) {
+          major = majors.find(m => m.cip_title.toLowerCase().includes(word));
+          if (major) break;
+        }
+      }
+      
+      // If still not found, try getting all majors for the institution
+      if (!major) {
+        majors = await optionsApi.getMajors({ 
+          institution_id: institution.id,
+          limit: 500 
+        });
+        const searchWords = scenario.majorName.toLowerCase().split(' ').filter(w => w.length > 3);
+        for (const word of searchWords) {
+          major = majors.find(m => m.cip_title.toLowerCase().includes(word));
+          if (major) break;
+        }
+      }
+
+      if (!major) {
+        setExampleError(`Could not find major "${scenario.majorName}" for ${institution.name}. Available majors may differ.`);
+        setLoadingExample(false);
+        return;
+      }
+
+      // Set form data with example scenario
+      const newFormData: ComputeRequest = {
+        institution_id: institution.id,
+        cip_code: major.cip_code,
+        credential_level: scenario.data.credential_level ?? 3,
+        is_instate: scenario.data.is_instate ?? true,
+        housing_type: scenario.data.housing_type ?? '1BR',
+        roommate_count: scenario.data.roommate_count ?? 0,
+        postgrad_region_id: scenario.data.postgrad_region_id ?? null,
+        rent_monthly: scenario.data.rent_monthly ?? null,
+        utilities_monthly: scenario.data.utilities_monthly ?? null,
+        food_monthly: scenario.data.food_monthly ?? null,
+        transport_monthly: scenario.data.transport_monthly ?? null,
+        books_annual: scenario.data.books_annual ?? null,
+        misc_monthly: scenario.data.misc_monthly ?? null,
+        aid_annual: scenario.data.aid_annual ?? 0,
+        cash_annual: scenario.data.cash_annual ?? 0,
+        loan_apr: scenario.data.loan_apr ?? 0,
+        effective_tax_rate: scenario.data.effective_tax_rate ?? 0,
+      };
+
+      setFormData(newFormData);
+      setLoadingExample(false);
+      
+      // Invalidate majors query to ensure it refetches with new institution
+      queryClient.invalidateQueries({ queryKey: ['majors', institution.id] });
+      
+      // Wait for majors to load, then calculate
+      setTimeout(() => {
+        computeMutation.mutate(newFormData);
+      }, 500);
+    } catch (error) {
+      console.error('Error loading example:', error);
+      setExampleError('Failed to load example scenario. Please try again or check your connection.');
+      setLoadingExample(false);
+    }
+  };
+
   const canCompute = formData.institution_id > 0 && formData.cip_code !== '';
 
   return (
@@ -126,16 +362,63 @@ export default function PlannerPage() {
       <div className="relative">
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-3xl blur-3xl opacity-50"></div>
         <div className="bg-gradient-to-br from-white/80 to-blue-50/80 backdrop-blur-sm rounded-2xl border-2 border-blue-100 p-8 shadow-lg overflow-visible min-h-0">
-          <Badge className="mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0">
-            <Calculator className="w-3 h-3 mr-1" />
-            ROI Calculator
-          </Badge>
+          <div className="flex items-start justify-between mb-4">
+            <Badge className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0">
+              <Calculator className="w-3 h-3 mr-1" />
+              ROI Calculator
+            </Badge>
+            <Button 
+              onClick={handleReset} 
+              variant="outline" 
+              className="border-2 hover:bg-slate-50 text-sm"
+              title="Reset all fields"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
+          </div>
           <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 break-words overflow-visible">
             College ROI Planner
           </h1>
           <p className="text-lg text-slate-600 mt-3 max-w-3xl">
             Plan your college investment by selecting an institution and major, then customize your assumptions to see detailed financial projections.
           </p>
+          
+          {/* Example Scenarios */}
+          <div className="mt-6 pt-6 border-t border-blue-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-semibold text-slate-700">Try Example Scenarios:</span>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {EXAMPLE_SCENARIOS.map((scenario, index) => (
+                <Button
+                  key={index}
+                  onClick={() => handleLoadExample(scenario)}
+                  variant="outline"
+                  className="border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-sm"
+                  disabled={computeMutation.isPending || loadingExample}
+                >
+                  <Zap className="w-3 h-3 mr-2" />
+                  {loadingExample ? 'Loading...' : scenario.label}
+                </Button>
+              ))}
+            </div>
+            {exampleError && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800">{exampleError}</p>
+                <button
+                  onClick={() => setExampleError(null)}
+                  className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+            <p className="text-xs text-slate-500 mt-2">
+              Click any example to prefill the form and calculate ROI automatically
+            </p>
+          </div>
         </div>
       </div>
 
