@@ -102,7 +102,9 @@ npm install
 
 ### 4. Set Up the Database
 
-1. In MySQL Workbench, open and run `database/schema.sql` to create the required database schema.
+1. **For Local Development**: In MySQL Workbench, open and run `database/schema.sql` to create the required database schema.
+
+2. **For Production (Aiven)**: Use `database/schema_aiven.sql` which is compatible with managed MySQL services like Aiven. This version removes DEFINER clauses that require SUPER privileges not available in managed environments.
 
 ---
 
