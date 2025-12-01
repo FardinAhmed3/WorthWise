@@ -81,16 +81,14 @@ cd worthwise
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 ```
 
-#### ETL (Optional: Use a separate venv or backend's)
+#### ETL
 
 ```sh
 cd ../etl
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+source ../venv/bin/activate  # Uses the venv from project root
 ```
 
 #### Frontend
