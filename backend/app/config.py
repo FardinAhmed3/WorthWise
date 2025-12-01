@@ -81,11 +81,11 @@ class Settings(BaseSettings):
                 "expose_headers": ["Content-Disposition"]
             }
         else:
-            # Production: Strict CORS - UPDATE WITH YOUR VERCEL URL
+            # Production: Strict CORS
             return {
                 "allow_origins": [
-                    "https://yourapp.vercel.app",  # UPDATE THIS
-                    "https://www.yourapp.com",     # UPDATE THIS
+                    "https://worthwise-backend-server.onrender.com",
+                    "https://worthwise-nu.vercel.app",
                 ],
                 "allow_credentials": True,
                 "allow_methods": ["GET", "POST", "OPTIONS"],
