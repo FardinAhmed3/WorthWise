@@ -51,6 +51,7 @@ cd worthwise
     # Server
     HOST=0.0.0.0
     PORT=8000
+    HF_SERVICE_URL=yourhuggingfacespace.hf
     ```
 3. Navigate to the `etl` directory
 4. Create a `.env` file and add the following (edit MySQL credentials as needed):

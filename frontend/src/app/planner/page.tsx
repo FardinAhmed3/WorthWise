@@ -7,8 +7,8 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { optionsApi, computeApi, exportApi } from '@/lib/api';
-import type { ComputeRequest, ComputeResponse, InstitutionOption } from '@/types/api';
+import { optionsApi, computeApi, exportApi, summarizeApi } from '@/lib/api';
+import type { ComputeRequest, ComputeResponse, InstitutionOption, SummarizeResponse } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ import { CostBreakdownChart } from '@/components/charts/cost-breakdown-chart';
 import { EarningsChart } from '@/components/charts/earnings-chart';
 import { InstitutionSelector } from '@/components/institution-selector';
 import { formatCurrency, formatPercent, formatNumber, formatRatio } from '@/lib/utils';
-import { Calculator, GraduationCap, Home, DollarSign, MapPin, Download, RotateCcw, Sparkles, Database, Zap } from 'lucide-react';
+import { Calculator, GraduationCap, Home, DollarSign, MapPin, Download, RotateCcw, Sparkles, Database, Zap, Star, Sparkles as SparklesIcon } from 'lucide-react';
 
 // Example scenario definitions
 interface ExampleScenario {
@@ -123,6 +123,11 @@ export default function PlannerPage() {
   // Computed result state
   const [result, setResult] = useState<ComputeResponse | null>(null);
   
+  // Summary state
+  const [summary, setSummary] = useState<SummarizeResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  
   // Example loading state
   const [exampleError, setExampleError] = useState<string | null>(null);
   const [loadingExample, setLoadingExample] = useState(false);
@@ -147,8 +152,59 @@ export default function PlannerPage() {
   // Compute mutation
   const computeMutation = useMutation({
     mutationFn: (request: ComputeRequest) => computeApi.computeScenario(request),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setResult(data);
+      
+      // Get institution and major names for summary
+      // Try to find institution in query cache (same approach as InstitutionSelector)
+      let institutionName: string | undefined;
+      const allCacheData = queryClient.getQueriesData<InstitutionOption[]>({ queryKey: ['schools'] });
+      for (const [, cacheData] of allCacheData) {
+        if (cacheData) {
+          const found = cacheData.find(inst => inst.id === data.scenario.institution_id);
+          if (found) {
+            institutionName = found.name;
+            break;
+          }
+        }
+      }
+      
+      // If not in cache, fetch it
+      if (!institutionName && data.scenario.institution_id) {
+        try {
+          const schools = await optionsApi.getSchools({ search: '', limit: 1000 });
+          const found = schools.find(s => s.id === data.scenario.institution_id);
+          institutionName = found?.name || `Institution ${data.scenario.institution_id}`;
+        } catch {
+          institutionName = `Institution ${data.scenario.institution_id}`;
+        }
+      }
+      
+      // Get major name from majors list
+      const major = majors.find(m => m.cip_code === data.scenario.cip_code);
+      const majorName = major?.cip_title || `Major ${data.scenario.cip_code}`;
+      
+      // Generate summary
+      if (institutionName && majorName && data.kpis.tuition_fees) {
+        setSummaryLoading(true);
+        setSummaryError(null);
+        try {
+          const summaryResult = await summarizeApi.summarize({
+            institution_name: institutionName,
+            major_name: majorName,
+            tuition_fees: data.kpis.tuition_fees,
+            earnings_year_1: data.kpis.earnings_year_1,
+            earnings_year_3: data.kpis.earnings_year_3,
+            roi: data.kpis.roi,
+          });
+          setSummary(summaryResult);
+        } catch (error) {
+          console.error('Failed to generate summary:', error);
+          setSummaryError('Failed to generate AI summary');
+        } finally {
+          setSummaryLoading(false);
+        }
+      }
     },
   });
 
@@ -194,6 +250,8 @@ export default function PlannerPage() {
       effective_tax_rate: 0,
     });
     setResult(null);
+    setSummary(null);
+    setSummaryError(null);
   };
 
   const handleLoadExample = async (scenario: ExampleScenario) => {
@@ -805,6 +863,65 @@ export default function PlannerPage() {
                   trend={result.kpis.comfort_index && result.kpis.comfort_index > 70 ? 'positive' : result.kpis.comfort_index && result.kpis.comfort_index < 40 ? 'negative' : 'neutral'}
                 />
               </div>
+
+              {/* AI Summary */}
+              <Card className="border-2 border-purple-100 shadow-lg bg-gradient-to-br from-white to-purple-50/50 backdrop-blur">
+                <CardHeader>
+                  <CardTitle className="text-2xl flex items-center gap-2">
+                    <SparklesIcon className="w-6 h-6 text-purple-600" />
+                    AI-Powered Analysis
+                  </CardTitle>
+                  <CardDescription>AI-generated summary of your ROI analysis</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {summaryLoading && (
+                    <div className="flex items-center justify-center py-8">
+                      <LoadingState message="Generating AI summary..." />
+                    </div>
+                  )}
+                  
+                  {summaryError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-sm text-red-800">{summaryError}</p>
+                    </div>
+                  )}
+                  
+                  {summary && !summaryLoading && (
+                    <>
+                      {/* Rating */}
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-sm font-semibold text-slate-700">Rating:</span>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-5 h-5 ${
+                                star <= summary.rating
+                                  ? 'fill-amber-400 text-amber-400'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm text-slate-600">({summary.rating}/5)</span>
+                      </div>
+                      
+                      {/* Summary Text */}
+                      <div className="prose prose-sm max-w-none">
+                        <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                          {summary.summary}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                  
+                  {!summary && !summaryLoading && !summaryError && (
+                    <p className="text-sm text-slate-500 italic">
+                      Summary will be generated automatically after calculation...
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Charts */}
               <Card className="border-2 border-blue-100 shadow-lg bg-white/80 backdrop-blur">
