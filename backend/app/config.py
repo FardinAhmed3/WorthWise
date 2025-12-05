@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     duckdb_path: str = Field(default="./artifacts/analytics.duckdb", alias="DUCKDB_PATH")
 
     # HuggingFace AI
-    hf_service_url: str = Field(alias="HF_SERVICE_URL")
+    hf_service_url: str = Field(default="http://localhost:7860", alias="HF_SERVICE_URL")
     
     # Server
     host: str = Field(default="0.0.0.0", alias="HOST")

@@ -127,4 +127,3 @@ async def summarize_from_compute(
             status_code=500,
             detail=f"Failed to generate summary: {str(e)}"
         )
-
