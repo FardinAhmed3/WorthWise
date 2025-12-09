@@ -327,12 +327,45 @@ class AnalyticsService:
         
         # 10. Calculate KPIs
         total_investment = (true_yearly_cost * program_years) - (request.aid_annual * program_years)
-        roi = self.calculator.calculate_roi(total_investment, earnings_year_3)
-        payback_years = self.calculator.calculate_payback_period(
-            expected_debt,
-            earnings_year_1,
-            request.effective_tax_rate
+        
+        # Calculate ROI with all available earnings data
+        roi = self.calculator.calculate_roi(
+            total_investment,
+            earnings_year_1=earnings_year_1,
+            earnings_year_3=earnings_year_3,
+            earnings_year_5=earnings_year_5
         )
+        
+        # Get major category for earnings fallback
+        major_category = None
+        if request.cip_code:
+            # Extract major category from CIP code (first 2 digits indicate broad field)
+            try:
+                cip_prefix = request.cip_code.split('.')[0]
+                cip_category_map = {
+                    '11': 'stem', '14': 'stem', '15': 'stem', '26': 'stem', '27': 'stem', '40': 'stem', '41': 'stem',
+                    '52': 'business', '13': 'education', '51': 'healthcare',
+                    '23': 'humanities', '24': 'humanities', '25': 'humanities', '30': 'humanities', '31': 'humanities',
+                    '46': 'trades', '47': 'trades', '48': 'trades', '49': 'trades'
+                }
+                major_category = cip_category_map.get(cip_prefix, 'business')
+            except:
+                major_category = 'business'
+
+        # Calculate payback period using robust, production-ready approach
+        payback_years = self.calculator.calculate_payback_period(
+            total_debt=expected_debt,
+            earnings_year_1=earnings_year_1,
+            earnings_year_3=earnings_year_3,
+            earnings_year_5=earnings_year_5,
+            effective_tax_rate=request.effective_tax_rate,
+            loan_apr=request.loan_apr,
+            living_expenses_annual=45000,  # Configurable default
+            tuition_in_state=inst_data.get("tuition_in_state"),
+            major_category=major_category,
+            institution_region=inst_data.get("state_code")
+        )
+        
         dti_year_1 = self.calculator.calculate_dti(expected_debt, earnings_year_1)
         
         # Placeholder graduation rate

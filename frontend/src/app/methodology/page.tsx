@@ -238,7 +238,7 @@ export default function MethodologyPage() {
               Payback Period
             </h4>
             <p className="text-sm text-slate-700 leading-relaxed">
-              Estimated number of years to fully repay student loan debt based on a standard 10-year repayment plan with the specified APR.
+              Robust, production-ready calculation using intelligent earnings estimation and progressive debt repayment. When earnings data is missing, uses statistically-derived fallbacks based on major field, geographic region, and tuition levels. Progressive payment strategy: 8% of disposable income (year 1), 12% (years 2-3), 15-18% (established career). Handles edge cases with conservative estimates rather than returning N/A, allowing payback periods up to 25 years.
             </p>
           </div>
 
